@@ -54,7 +54,8 @@ module "runners" {
   # Use the latest Ubuntu 20.04 AMI from our account
   # built using the packer template in the packer folder
   ami_filter = {
-    name = ["github-runner-ubuntu-focal-amd64-*"]
+    name  = ["github-runner-ubuntu-focal-amd64-*"]
+    state = ["available"]
   }
   ami_owners      = [data.aws_caller_identity.current.account_id]
   enable_userdata = false
