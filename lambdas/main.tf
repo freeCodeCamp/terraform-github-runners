@@ -1,5 +1,5 @@
 module "lambdas" {
-  source = "github.com/philips-labs/terraform-aws-github-runner//modules/download-lambda"
+  source = "philips-labs/github-runner/aws//modules/download-lambda"
   lambdas = [
     {
       name = "webhook"
