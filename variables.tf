@@ -17,12 +17,12 @@ variable "aws_region" {
   description = "AWS region to use for Terraform"
 }
 
+variable "prefix" {
+  default     = "github-runner"
+  description = "Prefix used for resource naming."
+}
+
 variable "environment" {
   default     = "ubuntu"
   description = "Environment name to use for tagging resources"
-}
-
-variable "runner_os" {
-  type    = string
-  default = "linux"
 }
