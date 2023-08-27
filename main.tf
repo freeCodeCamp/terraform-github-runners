@@ -107,6 +107,9 @@ module "runners" {
   # override scaling down
   # scale_down_schedule_expression = "cron(* * * * ? *)"
 
+  # enable ephemeral runners
+  enable_ephemeral_runners = true
+
   # More on AWS Cron Expressions: https://stackoverflow.com/a/39508593/1932901
   # Will scale down to minimum runners if there are no builds in the queue in the last 1 hours
   scale_down_schedule_expression = "cron(0 0/1 * * ? *)"
