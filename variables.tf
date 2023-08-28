@@ -18,11 +18,6 @@ variable "aws_region" {
 }
 
 variable "prefix" {
-  default     = "github-runner"
+  default     = "gh-nws-ci"
   description = "Prefix used for resource naming."
-}
-
-variable "environment" {
-  default     = "ubuntu"
-  description = "Environment name to use for tagging resources"
 }
