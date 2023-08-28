@@ -13,3 +13,6 @@ output "webhook_secret" {
   value     = random_id.random.hex
 }
 
+output "vpc" {
+  value = module.vpc
+}

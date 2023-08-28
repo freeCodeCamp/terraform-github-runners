@@ -1,9 +1,42 @@
-
 resource "random_id" "random" {
   byte_length = 20
 }
 
 data "aws_caller_identity" "current" {}
+
+resource "aws_resourcegroups_group" "resourcegroups_group" {
+  name = "${var.prefix}-group"
+  resource_query {
+    query = <<JSON
+    {
+      "ResourceTypeFilters" : ["AWS::AllSupported"],
+      "TagFilters" : [
+        {
+          "Key" : "GitHubRunner",
+          "Values" : ["${var.prefix}"]
+        }
+      ]
+    }
+    JSON
+  }
+}
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.1"
+
+  name = "${var.prefix}-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["${var.aws_region}a", "${var.aws_region}b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_dns_hostnames    = true
+  enable_nat_gateway      = true
+  map_public_ip_on_launch = false
+  single_nat_gateway      = true
+}
 
 module "runners" {
   source                          = "philips-labs/github-runner/aws"
@@ -13,10 +46,10 @@ module "runners" {
   vpc_id                          = module.vpc.vpc_id
   subnet_ids                      = module.vpc.private_subnets
 
-  prefix = var.environment
+  prefix = var.prefix
+
   tags = {
-    Project     = "GitHubRunner"
-    Environment = var.environment
+    GitHubRunner = var.prefix
   }
 
   github_app = {
@@ -32,8 +65,9 @@ module "runners" {
   runners_lambda_zip                = "lambdas/runners.zip"
 
   enable_organization_runners = false
-  runner_extra_labels         = "ubuntu,on-aws"
+  runner_extra_labels         = "on-aws"
 
+  # Run the GitHub actions agent as user.
   runner_run_as = "ubuntu"
 
   # enable access to the runners via SSM
@@ -49,7 +83,7 @@ module "runners" {
   #   idleCount = 2
   # }]
 
-  instance_types = ["m5.large", "c5.large"]
+  instance_types = ["c5.large"]
 
   # Use the latest Ubuntu 20.04 AMI from our account
   # built using the packer template in the packer folder
@@ -104,23 +138,12 @@ module "runners" {
   # set up a fifo queue to remain order
   enable_fifo_build_queue = true
 
-  # override scaling down
-  # scale_down_schedule_expression = "cron(* * * * ? *)"
-
   # enable ephemeral runners
-  enable_ephemeral_runners = true
+  enable_ephemeral_runners = false
 
   # More on AWS Cron Expressions: https://stackoverflow.com/a/39508593/1932901
   # Will scale down to minimum runners if there are no builds in the queue in the last 1 hours
   scale_down_schedule_expression = "cron(0 0/1 * * ? *)"
-}
 
-terraform {
-  cloud {
-    organization = "freecodecamp"
-
-    workspaces {
-      name = "tfws-ops-github-runners"
-    }
-  }
+  log_level = "debug"
 }
