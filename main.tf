@@ -7,7 +7,7 @@ data "aws_caller_identity" "current" {}
 
 module "runners" {
   source                          = "philips-labs/github-runner/aws"
-  version                         = "3.6.1"
+  version                         = "5.8.0"
   create_service_linked_role_spot = true
   aws_region                      = var.aws_region
   vpc_id                          = module.vpc.vpc_id
@@ -32,14 +32,15 @@ module "runners" {
   runners_lambda_zip                = "lambdas/runners.zip"
 
   enable_organization_runners = false
-  runner_extra_labels         = "ubuntu,on-aws"
 
   runner_run_as = "ubuntu"
 
   # enable access to the runners via SSM
-  enable_ssm_on_runners = true
+  enable_ssm_on_runners  = false
+  enable_ami_housekeeper = false
 
-  minimum_running_time_in_minutes = 30
+  enable_ephemeral_runners        = true
+  minimum_running_time_in_minutes = 60
 
   # idle_config = [{
   #   # https://github.com/philips-labs/terraform-aws-github-runner#supported-config-
@@ -49,7 +50,7 @@ module "runners" {
   #   idleCount = 2
   # }]
 
-  instance_types = ["m5.large", "c5.large"]
+  instance_types = ["c5.large", "m5.large"]
 
   # Use the latest Ubuntu 20.04 AMI from our account
   # built using the packer template in the packer folder

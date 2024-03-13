@@ -4,9 +4,6 @@ SHELL := /bin/bash
 
 # Variables
 MK_lambdas_tag=$(shell grep -E "version" main.tf | cut -d "=" -f 2 | sed 's/"/"v/' | sed 's/"//g' | sed 's/ //g')
-MK_github_app_id=$(GITHUB_APP_ID)
-MK_github_app_key_base64=$(GITHUB_APP_KEY_BASE64)
-MK_aws_profile=$(AWS_PROFILE)
 
 .DEFAULT_GOAL := help
 
@@ -24,13 +21,9 @@ help:
 	@echo "  apply-runners    Apply terraform in runners"
 	@echo "  deploy           Deploy all"
 	@echo ""
-	@echo "Environment Variables:"
-	@echo "  GITHUB_APP_ID             Github App ID"
-	@echo "  GITHUB_APP_KEY_BASE64     Github App Key Base64"
-	@echo "  AWS_PROFILE               AWS Profile"
 	@echo ""
 	@echo "Example:"
-	@echo "  make deploy GITHUB_APP_ID=12345 GITHUB_APP_KEY_BASE64=c2VjcmV0dmFsdWVmb3JrZXkK AWS_PROFILE=myIAMUser"
+	@echo "  make deploy"
 	@echo ""
 	@echo "Note:"
 	@echo "  You can use the following command to get the base64 of your Github App Key:"
@@ -62,12 +55,12 @@ init-runners:
 .PHONY: plan-runners
 plan-runners: init-runners
 	@echo "Planning terraform in runners..."
-	terraform plan -var "github_app_id=$(MK_github_app_id)" -var "github_app_key_base64=$(MK_github_app_key_base64)" -var "aws_profile=$(MK_aws_profile)"
+	terraform plan
 
 .PHONY: apply-runners
 apply-runners: plan-runners
 	@echo "Applying terraform in runners..."
-	terraform apply -var "github_app_id=$(MK_github_app_id)" -var "github_app_key_base64=$(MK_github_app_key_base64)" -var "aws_profile=$(MK_aws_profile)" -auto-approve
+	terraform apply
 	terraform output -raw webhook_secret
 
 .PHONY: deploy
