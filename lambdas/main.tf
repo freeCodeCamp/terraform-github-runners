@@ -1,17 +1,17 @@
 module "lambdas" {
-  source = "github.com/philips-labs/terraform-aws-github-runner//modules/download-lambda"
+  source = "philips-labs/github-runner/aws//modules/download-lambda"
   lambdas = [
     {
       name = "webhook"
-      tag  = var.download_lambda_tag
+      tag  = "v5.8.0"
     },
     {
       name = "runners"
-      tag  = var.download_lambda_tag
+      tag  = "v5.8.0"
     },
     {
       name = "runner-binaries-syncer"
-      tag  = var.download_lambda_tag
+      tag  = "v5.8.0"
     }
   ]
 }

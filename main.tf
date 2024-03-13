@@ -1,3 +1,6 @@
+locals {
+  environment = var.environment != null ? var.environment : "ephemeral"
+}
 
 resource "random_id" "random" {
   byte_length = 20
@@ -6,12 +9,16 @@ resource "random_id" "random" {
 data "aws_caller_identity" "current" {}
 
 module "runners" {
-  source                          = "philips-labs/github-runner/aws"
-  version                         = "3.6.1"
-  create_service_linked_role_spot = true
-  aws_region                      = var.aws_region
-  vpc_id                          = module.vpc.vpc_id
-  subnet_ids                      = module.vpc.private_subnets
+  depends_on = [
+    module.vpc,
+    aws_resourcegroups_group.resourcegroups_group
+  ]
+
+  source     = "philips-labs/github-runner/aws"
+  version    = "5.8.0"
+  aws_region = var.aws_region
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
   prefix = var.environment
   tags = {
@@ -31,15 +38,29 @@ module "runners" {
   runner_binaries_syncer_lambda_zip = "lambdas/runner-binaries-syncer.zip"
   runners_lambda_zip                = "lambdas/runners.zip"
 
+  log_level = "debug"
+
+  enable_ephemeral_runners    = true
+  delay_webhook_event         = 0
   enable_organization_runners = false
-  runner_extra_labels         = "ubuntu,on-aws"
+  enable_job_queued_check     = true
+  enable_fifo_build_queue     = false
 
-  runner_run_as = "ubuntu"
+  instance_types      = ["m5.large", "c5.large"]
+  runner_extra_labels = ["ubuntu", "on-aws"]
 
-  # enable access to the runners via SSM
-  enable_ssm_on_runners = true
+  # disable binary syncer since github agent is already installed in the AMI.
+  enable_runner_binaries_syncer = false
 
-  minimum_running_time_in_minutes = 30
+  # enable_ssm_on_runners = true
+  create_service_linked_role_spot = true
+
+  runners_maximum_count           = 10
+  minimum_running_time_in_minutes = 45
+
+  # More on AWS Cron Expressions: https://stackoverflow.com/a/39508593/1932901
+  # Will scale down to minimum runners if there are no builds in the queue in the last 1 hours
+  scale_down_schedule_expression = "cron(0 0/1 * * ? *)"
 
   # idle_config = [{
   #   # https://github.com/philips-labs/terraform-aws-github-runner#supported-config-
@@ -49,29 +70,18 @@ module "runners" {
   #   idleCount = 2
   # }]
 
-  instance_types = ["m5.large", "c5.large"]
 
-  # Use the latest Ubuntu 20.04 AMI from our account
+  # Use the latest Ubuntu AMI from our account
   # built using the packer template in the packer folder
-  ami_filter = {
-    name  = ["github-runner-ubuntu-focal-amd64-*"]
-    state = ["available"]
-  }
+  ami_filter      = { name = ["github-runner-ubuntu-*-amd64-*"], state = ["available"] }
   ami_owners      = [data.aws_caller_identity.current.account_id]
-  enable_userdata = false
+  enable_userdata = false # We are using the latest AMI with the runner installed
 
-  block_device_mappings = [{
-    # Set the block device name for Ubuntu root device
-    device_name           = "/dev/sda1"
-    delete_on_termination = true
-    volume_type           = "gp3"
-    volume_size           = 30
-    encrypted             = true
-    iops                  = null
-    throughput            = null
-    kms_key_id            = null
-    snapshot_id           = null
-  }]
+  tracing_config = {
+    mode                  = "Active"
+    capture_error         = true
+    capture_http_requests = true
+  }
 
   runner_log_files = [
     {
@@ -94,22 +104,6 @@ module "runners" {
     }
   ]
 
-  # disable binary syncer since github agent is already installed in the AMI.
-  enable_runner_binaries_syncer = false
-
-  # override delay of events in seconds
-  delay_webhook_event   = 5
-  runners_maximum_count = 10
-
-  # set up a fifo queue to remain order
-  enable_fifo_build_queue = true
-
-  # override scaling down
-  # scale_down_schedule_expression = "cron(* * * * ? *)"
-
-  # More on AWS Cron Expressions: https://stackoverflow.com/a/39508593/1932901
-  # Will scale down to minimum runners if there are no builds in the queue in the last 1 hours
-  scale_down_schedule_expression = "cron(0 0/1 * * ? *)"
 }
 
 terraform {

@@ -22,22 +22,20 @@ help:
 	@echo "  init-runners     Initialize terraform in runners"
 	@echo "  plan-runners     Plan terraform in runners"
 	@echo "  apply-runners    Apply terraform in runners"
+	@echo ""
+	@echo "  upgrade          Get instructions to upgrade the runners"
+	@echo ""
+	@echo "  plan             Plan all"
+	@echo "  destroy          Destroy all"
 	@echo "  deploy           Deploy all"
 	@echo ""
 	@echo "Environment Variables:"
-	@echo "  GITHUB_APP_ID             Github App ID"
-	@echo "  GITHUB_APP_KEY_BASE64     Github App Key Base64"
-	@echo "  AWS_PROFILE               AWS Profile"
-	@echo ""
-	@echo "Example:"
-	@echo "  make deploy GITHUB_APP_ID=12345 GITHUB_APP_KEY_BASE64=c2VjcmV0dmFsdWVmb3JrZXkK AWS_PROFILE=myIAMUser"
+	@echo "  Copy the .terraform.tfvars.example to .terraform.tfvars and fill the variables"
 	@echo ""
 	@echo "Note:"
 	@echo "  You can use the following command to get the base64 of your Github App Key:"
 	@echo "    cat github-app-key.pem | base64 -w 0"
-	@echo ""
-	@echo "Warning:"
-	@echo "  You should setup the AWS CLI Profile and signed into Terraform Cloud before running any commands."
+
 
 .PHONY: init-lambdas
 init-lambdas:
@@ -62,13 +60,46 @@ init-runners:
 .PHONY: plan-runners
 plan-runners: init-runners
 	@echo "Planning terraform in runners..."
-	terraform plan -var "github_app_id=$(MK_github_app_id)" -var "github_app_key_base64=$(MK_github_app_key_base64)" -var "aws_profile=$(MK_aws_profile)"
+	terraform plan
 
 .PHONY: apply-runners
 apply-runners: plan-runners
 	@echo "Applying terraform in runners..."
-	terraform apply -var "github_app_id=$(MK_github_app_id)" -var "github_app_key_base64=$(MK_github_app_key_base64)" -var "aws_profile=$(MK_aws_profile)" -auto-approve
+	terraform apply -auto-approve
 	terraform output -raw webhook_secret
+
+# Packer
+.PHONY: packer
+packer:
+	@echo "Building packer image..."
+	packer init ./packer/github-agent/ubuntu.pkr.hcl
+	packer validate ./packer/github-agent/ubuntu.pkr.hcl
+	packer build ./packer/github-agent/ubuntu.pkr.hcl
+
+# Main targets
+
+.PHONY: upgrade
+upgrade:
+	@echo ""
+	@echo "To upgrade the runners, follow these steps:"
+	@echo "Step 1: Update the GitHub runner version in the packer template."
+	@echo "Step 2: Update the module version in main.tf,"
+	@echo "        the lambdas version is sources from that in this makefile."
+	@echo "Step 3: Run 'make packer' to build the new image."
+	@echo "Step 4: Run 'make deploy' to deploy the new runners."
+
+.PHONY: init
+init: init-lambdas init-runners
+
+.PHONY: plan
+plan: download-lambdas plan-runners
 
 .PHONY: deploy
 deploy: download-lambdas apply-runners
+
+.PHONY: destroy
+destroy:
+	@echo "Destroying runners..."
+	terraform destroy -auto-approve
+	@echo "Destroying lambdas..."
+	cd lambdas && terraform destroy -var "download_lambda_tag=$(MK_lambdas_tag)" -auto-approve
